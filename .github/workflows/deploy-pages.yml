@@ -1,0 +1,36 @@
+name: 公開
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: ファイルを準備
+        uses: actions/checkout@v4
+      - name: GitHub Pagesを設定
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - name: 公開ファイルをまとめる
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - name: 公開する
+        id: deployment
+        uses: actions/deploy-pages@v4
