@@ -1,12 +1,12 @@
-const CACHE_NAME = "maachan-bookshelf-v4";
+const CACHE_NAME = "maachan-bookshelf-v5";
 const BASE_URL = new URL("./", self.registration.scope);
 const CORE_ASSETS = [
   "./",
   "./manifest.webmanifest",
-  "./icon-full-color-192.jpg",
-  "./icon-full-color-512.jpg",
-  "./icon-full-color-maskable-512.jpg",
-  "./apple-touch-icon-full-color.jpg",
+  "./icon-192.png",
+  "./icon-512.png",
+  "./icon-maskable-512.png",
+  "./apple-touch-icon.png",
   "./bookshelf-bg.jpg"
 ].map((path) => new URL(path, BASE_URL).href);
 
