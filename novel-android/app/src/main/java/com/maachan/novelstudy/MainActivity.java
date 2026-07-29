@@ -22,6 +22,8 @@ import java.nio.charset.StandardCharsets;
 public class MainActivity extends Activity {
     private static final int REQUEST_OPEN_FILE = 2001;
     private static final int REQUEST_SAVE_BACKUP = 2002;
+    private static final String DATA_PREFERENCES = "maachan_novel_data";
+    private static final String DATA_KEY = "items_json";
 
     private WebView webView;
     private ValueCallback<Uri[]> fileCallback;
@@ -38,7 +40,8 @@ public class MainActivity extends Activity {
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
         settings.setAllowFileAccess(false);
-        // Allow Android's document picker content:// URIs while keeping file:// access disabled.
+        // Android's document picker returns content:// URIs.  File inputs need
+        // content access enabled even though direct file:// access stays off.
         settings.setAllowContentAccess(true);
 
         WebViewAssetLoader assetLoader = new WebViewAssetLoader.Builder()
@@ -86,8 +89,26 @@ public class MainActivity extends Activity {
             }
         });
 
+        webView.addJavascriptInterface(new DataBridge(), "AndroidData");
         webView.addJavascriptInterface(new BackupBridge(), "AndroidBackup");
         webView.loadUrl("https://appassets.androidplatform.net/assets/www/index.html");
+    }
+
+    public class DataBridge {
+        @JavascriptInterface
+        public String loadItems() {
+            return getSharedPreferences(DATA_PREFERENCES, MODE_PRIVATE)
+                    .getString(DATA_KEY, "");
+        }
+
+        @JavascriptInterface
+        public boolean saveItems(String json) {
+            if (json == null) return false;
+            return getSharedPreferences(DATA_PREFERENCES, MODE_PRIVATE)
+                    .edit()
+                    .putString(DATA_KEY, json)
+                    .commit();
+        }
     }
 
     public class BackupBridge {
@@ -143,3 +164,4 @@ public class MainActivity extends Activity {
         else super.onBackPressed();
     }
 }
+
