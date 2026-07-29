@@ -1,4 +1,4 @@
-const CACHE_NAME = "maachan-bookshelf-v5";
+const CACHE_NAME = "maachan-bookshelf-v6";
 const BASE_URL = new URL("./", self.registration.scope);
 const CORE_ASSETS = [
   "./",
