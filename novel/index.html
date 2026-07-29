@@ -85,6 +85,20 @@ h1{margin:0;font:700 clamp(31px,7.5vw,45px)/1.08 Georgia,"Yu Mincho",serif;white
 }
 .part-checks label:has(input:checked){color:#fff;background:var(--accent-dark)}
 .part-checks input{position:absolute;opacity:0;pointer-events:none}
+.selection-bar{
+  position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:7px;
+  margin:7px 4px;padding:9px 10px;border:1px solid #9bbbd3;border-radius:15px;
+  color:#173a63;background:#e9f4fbf5;box-shadow:0 8px 24px #061b2d55
+}
+.selection-bar[hidden]{display:none}
+.selection-bar strong{margin-right:auto;font-size:14px}
+.selection-bar button{padding:8px 10px;border:0;border-radius:10px;color:#244b68;background:#d1e5f3;font-weight:800}
+.selection-bar .delete-selected{color:#fff;background:#8b4b4b}
+.card.selected{border-color:#2d79ad;background:#dceefa;box-shadow:0 0 0 3px #76add155,0 9px 28px #061b2d66}
+.select-dot{display:none;place-items:center;width:27px;height:27px;flex:none;border:2px solid #6f98b5;border-radius:50%;color:#fff;background:#fff;font-size:17px;font-weight:900}
+.selecting .select-dot{display:grid}
+.card.selected .select-dot{border-color:#236f9f;background:#236f9f}
+.selecting .part-checks{opacity:.42;pointer-events:none}
 .empty{padding:72px 10px;text-align:center;color:#e4f1fa;text-shadow:0 2px 5px #07192a}
 dialog{
   width:min(calc(100% - 24px),520px);max-height:calc(100dvh - 22px);margin:auto auto 11px;padding:22px;
@@ -155,6 +169,12 @@ dialog::backdrop{background:#07192ab8;backdrop-filter:blur(3px)}
     <button class="data" onclick="dataDialog.showModal()" aria-label="データ管理">•••</button>
   </div>
 </header>
+<div id="selectionBar" class="selection-bar" hidden>
+  <strong id="selectionCount">0作品を選択</strong>
+  <button onclick="selectAllShown()">表示中を全選択</button>
+  <button class="delete-selected" onclick="deleteSelected()">削除</button>
+  <button onclick="exitSelection()">完了</button>
+</div>
 <div id="list"></div>
 </main>
 
@@ -215,6 +235,8 @@ try{
   if(Array.isArray(saved))items=saved.map(normalizeItem);
 }catch{}
 let sort="kana",editing=null,cloudSaveTimer,timer;
+let selectionMode=false;
+const selectedIds=new Set();
 
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -285,6 +307,9 @@ function render(){
   const finished=items.filter(x=>x.finished).length;
   const masterpieces=items.filter(x=>x.masterpiece).length;
   $("summary").textContent=`${items.length}作品（読破 ${finished}・名作 ${masterpieces}）`;
+  document.body.classList.toggle("selecting",selectionMode);
+  $("selectionBar").hidden=!selectionMode;
+  $("selectionCount").textContent=`${selectedIds.size}作品を選択`;
   let previous="";
   $("list").innerHTML=shown.length?shown.map(x=>{
     const group=groupKey(x);
@@ -296,8 +321,10 @@ function render(){
       [...(x.publishers||[]),x.publisherOther].filter(Boolean).join("・")||"出版社未登録",
       x.memo||x.details||"メモなし"
     ].join(" ・ ");
-    return`${heading}<article class="card" data-id="${esc(x.id)}">
-      <button class="info edit-item" aria-label="${esc(x.title)}を編集">
+    const selected=selectedIds.has(x.id);
+    return`${heading}<article class="card ${selected?"selected":""}" data-id="${esc(x.id)}">
+      <button class="info edit-item" aria-label="${esc(x.title)}を${selectionMode?"選択":"編集"}">
+        <span class="select-dot" aria-hidden="true">${selected?"✓":""}</span>
         <span class="mark"></span><span class="text">
           <span class="name-row"><strong>${esc(x.title)}</strong>
             ${x.masterpiece?'<em class="badge masterpiece">名作</em>':""}
@@ -313,15 +340,70 @@ function render(){
       </div>
     </article>`;
   }).join(""):'<div class="empty">見つかりませんでした</div>';
-  document.querySelectorAll(".edit-item").forEach(button=>{
-    button.onclick=()=>openEdit(button.closest("[data-id]").dataset.id);
-  });
+  document.querySelectorAll(".edit-item").forEach(button=>bindLongPress(button));
   document.querySelectorAll(".part-checks input").forEach(input=>{
     input.onchange=()=>{
+      if(selectionMode)return;
       const card=input.closest("[data-id]");
       togglePart(card.dataset.id,input.dataset.part,input.checked);
     };
   });
+}
+function bindLongPress(button){
+  const id=button.closest("[data-id]").dataset.id;
+  let pressTimer=0,longPressed=false;
+  const cancel=()=>{if(pressTimer)clearTimeout(pressTimer);pressTimer=0};
+  button.onpointerdown=()=>{
+    if(selectionMode)return;
+    longPressed=false;
+    pressTimer=setTimeout(()=>{
+      longPressed=true;
+      enterSelection(id);
+      navigator.vibrate?.(35);
+    },550);
+  };
+  button.onpointerup=cancel;
+  button.onpointercancel=cancel;
+  button.onpointerleave=cancel;
+  button.oncontextmenu=event=>{
+    event.preventDefault();
+    if(!selectionMode)enterSelection(id);
+  };
+  button.onclick=event=>{
+    if(longPressed){event.preventDefault();longPressed=false;return}
+    if(selectionMode){toggleSelected(id);return}
+    openEdit(id);
+  };
+}
+function enterSelection(id){
+  selectionMode=true;
+  selectedIds.add(id);
+  render();
+}
+function toggleSelected(id){
+  if(selectedIds.has(id))selectedIds.delete(id);else selectedIds.add(id);
+  if(!selectedIds.size)return exitSelection();
+  render();
+}
+function selectAllShown(){
+  document.querySelectorAll("#list [data-id]").forEach(card=>selectedIds.add(card.dataset.id));
+  render();
+}
+function exitSelection(){
+  selectionMode=false;
+  selectedIds.clear();
+  render();
+}
+function deleteSelected(){
+  const count=selectedIds.size;
+  if(!count)return;
+  if(!confirm(`選択した${count}作品を削除しますか？`))return;
+  items=items.filter(x=>!selectedIds.has(x.id));
+  selectionMode=false;
+  selectedIds.clear();
+  persist();
+  render();
+  toast(`${count}作品を削除しました`);
 }
 function partCheckbox(part,label,checked){
   return`<label><input type="checkbox" data-part="${part}" ${checked?"checked":""}><span>${label}</span></label>`;
