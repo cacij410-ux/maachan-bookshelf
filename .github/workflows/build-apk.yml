@@ -38,13 +38,13 @@ jobs:
       - name: Prepare offline files and icon
         run: |
           mkdir -p android/app/src/main/assets/www
-          mkdir -p android/app/src/main/res/drawable
+          mkdir -p android/app/src/main/res/drawable-nodpi
           cp index.html manifest.webmanifest sw.js android/app/src/main/assets/www/
           cp *.png *.jpg android/app/src/main/assets/www/
           cp -r assets android/app/src/main/assets/www/
           sed -i 's|/maachan-bookshelf/|./|g' android/app/src/main/assets/www/index.html
           sed -i 's|/maachan-bookshelf/|../|g' android/app/src/main/assets/www/assets/*.css
-          cp icon-512.png android/app/src/main/res/drawable/app_icon.png
+          cp icon-512.png android/app/src/main/res/drawable-nodpi/app_icon.png
 
       - name: Build APK
         run: gradle -p android :app:assembleDebug --no-daemon
