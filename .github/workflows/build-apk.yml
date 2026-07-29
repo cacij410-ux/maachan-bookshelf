@@ -1,0 +1,65 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "android/**"
+      - ".github/workflows/build-apk.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out files
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Install Android SDK
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Prepare offline files and icon
+        run: |
+          mkdir -p android/app/src/main/assets/www
+          mkdir -p android/app/src/main/res/drawable
+          cp index.html manifest.webmanifest sw.js android/app/src/main/assets/www/
+          cp *.png *.jpg android/app/src/main/assets/www/
+          cp -r assets android/app/src/main/assets/www/
+          sed -i 's|/maachan-bookshelf/|./|g' android/app/src/main/assets/www/index.html
+          sed -i 's|/maachan-bookshelf/|../|g' android/app/src/main/assets/www/assets/*.css
+          cp icon-512.png android/app/src/main/res/drawable/app_icon.png
+
+      - name: Build APK
+        run: gradle -p android :app:assembleDebug --no-daemon
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: maachan-bookshelf-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Publish downloadable APK
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk maachan-bookshelf.apk
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add maachan-bookshelf.apk
+          git commit -m "Update Android APK" || exit 0
+          git push
